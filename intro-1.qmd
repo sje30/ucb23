@@ -1,0 +1,621 @@
+---
+title: "Julia Introduction"
+format: ipynb
+execute: 
+    eval: true
+    echo: true
+    error: true
+toc: true
+---
+
+## 1 - Calculating the sum of integers
+
+Concepts introduced:
+
+-   ***Variables*** and the ***types*** of values that they can take
+
+-   **`for`**, **`begin`**, and **`if`** blocks
+
+-   ***Functions*** and ***macros***
+
+-   ***Recursion***
+
+-   Using ***documentation***
+
+This guide is written for use in the Julia REPL, although saving code into a file will also work if you prefer. It also functions as a Pluto notebook, to be used interactively.
+
+### Setup
+
+Suppose we want to calculate the sum of the integers $1$ to $100$. We can start off by typing simple sums, pressing enter, and Julia will be able to tell us the answer.
+
+```{julia}
+1 + 2
+```
+
+```{julia}
+1 + 2 + 3
+```
+
+```{julia}
+1 + 2 + 3 + 4
+```
+
+However, this is would be quite annoying to have to type out all the way up to $100$. And what if we then decided we wanted to go to $1000$? Or $1$ million?
+
+Instead, we want to be able to ask Julia to add up without us laboriously writing out every term of the sum. Luckily, we have plenty of choice of ways to do this.
+
+### Variables and the `for` loop
+
+Our first tool to introduce will be *variables*, which are names that we assign a value to, and then can use that name in place of the value. This allows us to write code that performs calculations where we don't explicitly tell Julia which numbers to use. A value is assigned to a variable using `=` as follows:
+
+```{julia}
+number1 = 1
+```
+
+Names of variables are important to choose carefully, as we don't want them to be misinterpreted by Julia, particularly if the name is already in use as a keyword. For readability of code, it should be named to make clear its purpose or value. We are also limited by Julia, which forces us to start the variable name with a letter, or letter-like symbol. Despite this, and unlike in many other languages, we can use a wide range of characters for variable names, including non-Latin scripts and some emoji.
+
+```{julia}
+αριθμός2️⃣ = 2
+```
+
+Variables can be numerical, but they can also take many other different values depending on what we might use them for, e.g. some text, which we need surround with quotation marks to tell Julia to expect text and not try to run it as code.
+
+```{julia}
+juliaURL = "https://julialang.org/"
+```
+
+Another common variable we might want to define is a list of values, which we can do by enclosing them in square brackets `[` and `]`, and seperating each by a comma:
+
+```{julia}
+favouritenumbers = [7, 37, 137, 1089]
+```
+
+For better readability, it can sometimes be better to space out the list as follows, with one element on each line. It's usually preferable to have many short lines rather than one long one.
+
+```{julia}
+menonthemoon = [
+    "Neil Armstrong",
+    "Buzz Aldrin",
+    "Pete Conrad",
+    "Alan Bean",
+    "Alan Shepard",
+    "Edgar Mitchell",
+    "David Scott",
+    "James Irwin",
+    "John Young",
+    "Charles Duke",
+    "Gene Cernan",
+    "Harrison Schmitt"
+]
+```
+
+We can ask Julia to tell us the value of the variable simply by typing the name of that variable.
+
+```{julia}
+number1
+```
+
+We can then use the names in place of the values they represent in sums.
+
+```{julia}
+number1 + αριθμός2️⃣
+```
+
+So what? We've managed to write several lines of code that did exactly what we managed before in one. This looks more like a step backwards than a step forwards at the moment.
+
+The crucial aspect of the variable is that we can change its value without changing its name. This means we can ask Julia to repeat the same operations again and again (that is, adding the next number to a running total) by only writing it once.
+
+We'll start by giving a variable the name `runningtotal`, with starting value `0`.
+
+``` julia
+runningtotal = 0
+```
+
+Then, we'll use a `for` loop. A `for` loop takes the form:
+
+``` julia
+for <variable-name> in <list-of-things>
+    <code-to-loop>
+end
+```
+
+The names in angle brackets are not correct Julia syntax (if you tried to run this as is, Julia would get very confused!), but are meant as placeholders to describe what code should be put in that place. We've seen some examples of lists of things before, but many other types of data can perform the same function. The `for` loop goes through the list, taking each item one at a time, giving it the ascribed name, and then running the following section of code on that item. The keyword `end` is necessary to tell Julia when we want it to go back to the start of the loop with the next item from the list.
+
+For our purposes, we'll take the list to be `1:1000`, which denotes the integers between $1$ and $1000$, including both ends. The variable will be called `n`, and within the loop, we'll add `n` to the running total.
+
+``` julia
+for n in 1:1000
+    runningtotal = runningtotal + n
+end
+```
+
+Notice that the `=` sign does not mean the same as it would mathematically, as clearly this would be a false equation. Instead, Julia calculates the right hand side, and then sets the variable on the left hand side to take that value, which in this case overwrites the original value of `runningtotal` to be the new sum.
+
+Putting this together, we can run the loop:
+
+```{julia}
+begin
+    
+    # Set the initial value to 0
+    runningtotal = 0
+
+    # Add each number from 1 to 1000 in turn
+    for n in 1:1000
+        runningtotal = runningtotal + n
+    end
+
+end
+```
+
+There's a couple of things to say here. The `begin`-`end` block here is useful for typing out multiple statements at a time without Julia running them one by one automatically. It function almost like a set of parentheses would in algebra, opening with a `begin`, and Julia will evaluate the contents in side all at once when you've closed with an `end`. In this instance, it's useful to set the initial value of `0` and then run the loop all in one go, so if we want to try it again, we don't need to remember to reset the value of `runningtotal` again.
+
+Also, we see the text after the hash symbol `#` is pink, italicised, and also isn't code. This is because it is a *comment*, as marked by the `#`, and is ignored by Julia, while allowing us to read it so that we can more easily understand what is happening. Comments are very useful, particularly if you come back to code you've written some time ago, and you've forgotten what you were trying to do. They are also very useful if someone else wants to see what you've done, and you aren't there to explain it.
+
+Now, to find the final value of the `runningtotal`, we simply type its name to ask Julia what it's value now is.
+
+```{julia}
+runningtotal
+```
+
+### Functions and types
+
+Just because we've solved the problem, that doesn't mean it's not worth looking for more solutions, especially if we can improve on our original method in some way. As we'll see, there are several other ways of summing the integers $1$ to $1000$ that can teach different ideas.
+
+There's an often recounted story about the 19th century German (as much as German meant anything back then) mathematician Carl Friedrich Gauss being asked to sum the numbers $1$ to $100$ by a teacher who presumably wanted a quiet half hour to themselves, and coming up with the right answer $5050$ almost immediately. Given the countless retellings over the last 200 years, it's difficult to say how much truth there is to it, but nonetheless it does demonstrate that there is a shortcut specific to this problem.
+
+First, we write down the numbers from $1$ to $100$ in a row. Below them, we write down the same sequence, but backwards. We then sum each column of two numbers:
+
+$$
++\quad \begin{matrix}
+1 & 2 & 3 & \cdots & 98 & 99 & 100 \\
+100 & 99 & 98 & \cdots & 3 & 2 & 1 \\\hline
+101 & 101 & 101 & \cdots & 101 & 101 & 101 \\
+\end{matrix}
+$$
+
+All of the answers are $101$! We can add up all of the numbers on both rows by adding up the column sums, i.e $101 \times 100 = 10100$. Then, since we wrote down every number between $1$ and $100$ twice, we want to halve this to get the sum we're looking for:
+
+$$
+1 + 2 + 3 + \dots + 99 + 100 = \frac{10100}{2} = 5050
+$$
+
+In fact, we can do the same thing for the sum from $1$ to $N$, and get a general formula:
+
+$$
++\quad \begin{matrix}
+1 & 2 & 3 & \cdots & N-2 & N-1 & N \\
+N & N-1 & N-2 & \cdots & 3 & 2 & 1 \\\hline
+N+1 & N+1 & N+1 & \cdots & N+1 & N+1 & N+1 \\
+\end{matrix}
+$$
+
+$$
+1 + 2 + 3 + \dots + (N-1) + N = \frac{1}{2} ((N + 1) \times N) = \frac{N(N+1)}{2}
+$$
+
+Well this is much easier, in fact we don't even need Julia any more to calculate the sum of integers from $1$ to $1000$, as it will be:
+
+$$
+1 + 2 + 3 + \dots + 999 + 1000 = \frac{1000 \times 1001}{2} = \frac{1001000}{2} = 500500
+$$
+
+Instead, lets suppose we want a way to sum the integers from $1$ to $N$, for any value of $N$ we might choose, without having to write out the formula every time. For this, we'll need a `function`, which allows a predetermined set of calculations to be done for any given input. We can evaluate a function by:
+
+``` julia
+<function-name>(<input-1>, <input-2>, etc.)
+```
+
+The number of inputs we need to provide, and what values they might take, will depend on what the function is. Julia has many inbuilt functions for various tasks, such as the following:
+
+```{julia}
+min(45, 54) # Finds the minimum of its inputs
+```
+
+```{julia}
+reverse("desserts") # Reverses the text input
+```
+
+```{julia}
+length([12, 34, 56, 78]) # Counts the number of items in the list
+```
+
+In several of these cases, we could guess that the function will fail if we provide nonsensical inputs, such as trying to find the `min` of `"beetroot"` and `"cucumber"`, or the `length` of `12`. However:
+
+```{julia}
+min("beetroot", "cucumber")
+```
+
+```{julia}
+length(12)
+```
+
+This is because functions can change their behaviour depending on what is input. Usually, `min` finds the smallest of two numbers, but if it receives text instead, it finds the first alphabetically. Meanwhile, if `length` gets a single item instead of a list, it considers it a list with only one item in it, and so tells us we have a list of length 1. This isn't universally true however, as putting the wrong data into a function can simple cause an error:
+
+```{julia}
+reverse(34)
+```
+
+We can also write our own functions, if no inbuilt function does what we want. The syntax for this will look like:
+
+``` julia
+<function-name>(<input-1>, <input-2>, etc.)
+    <code-to-run>
+    return <output-value>
+end
+```
+
+The function name is much like a variable name, and we should choose it to represent what we want it to do. We specify the number of inputs, and give them variable names in the function definition so we can use them in calculations, but we don't have to give them values yet. We then write the code that performs our desired computations, and follow the keyword `return` with the value we want the function to output.
+
+It's important to note that any variable names you refer to inside the function definition (including in the inputs) will only exist within the function, and you won't be able to refer to them outside. This is because they are simply placeholder names, and don't even have a value except while the function is evaluating.
+
+We'll now write a function of our own to calculate the sum from $1$ to $1000$, using the formula we found earlier. Muliplication is written with an asterisk `*`, and division with a forward slash `/`, so our desired function is:
+
+```{julia}
+#v1 for version 1, we'll be seeing many more versions!
+function sum1toNv1(N)
+    # Formula for summing integers from 1 to N
+    return (N * (N+1)) / 2
+end
+```
+
+We've used `N` here as our variable name, which isn't very descriptive, but the comment makes it clear what it represents, so it's an acceptable choice of variable name. As mentioned before, it doesn't exist outside of the function, so we can't ask Julia its value:
+
+```{julia}
+N
+```
+
+Let's try this out with $N = 1000$, and see if we get $500500$ as expected:
+
+```{julia}
+sum1toNv1(1000)
+```
+
+It's not wrong, but it's not what we were expecting either. Why does Julia bother to write a `.0` after the number? This is because every value in our code, every variable, even every word of code we write, has a hidden property called its *type*. We've already seen how the value that a variable takes can be one of many different forms, and these are examples of types:
+
+-   `Int64` is the type corresponding to integers
+
+-   `Float64` is the type corresponding to decimals
+
+-   `String` is the type corresponding to text
+
+-   `Vector` is the type corresponding to lists contained in square brackets
+
+-   `UnitRange` is the type corresponding to lists of numbers such as `1:1000`
+
+-   `Function` is the type corresponding to functions, whether custom or inbuilt into Julia
+
+We can use the inbuilt function `typeof` to ask Julia what the type of a given variable or data input is:
+
+```{julia}
+typeof(sum1toNv1(1000))
+```
+
+Shouldn't it be an integer, i.e. `Int64`? No, as there are good reasons you might want to use this number as if it were a decimal, just with zero decimal part. `Float64` accommodates integers as well, but to distinguish the two types when displaying their values, Julia adds `.0` to the end of the `Float64` to signify the zero decimal part.
+
+But why do we get a `Float64` out in the first place? Types are what Julia uses to work out how to treat data, such as when it is input into a function, as we saw before. Indeed, the error message we saw when we tried `reverse(34)` said
+
+``` julia
+MethodError: no method matching reverse(::Int64)
+```
+
+by which it means there is no definition for the function `reverse` that allows a single input of type `Int64`, which is what we gave it in the form of `34`.
+
+The method by which Julia evaluates how a function will run depending on the types of its inputs is called *multiple dispatch*. It is a very useful tool to have in the toolbox, one of Julia's most powerful, but for now we'll just be aware of its existence and its consequences for the functions that we may use.
+
+Why is this relevant to the unexpected `.0`? Well, the division `/` is a function, just with special syntax as it is so commonly used, and dividing an `Int64` by an `Int64` cannot return an `Int64`, as you don't always get an integer when dividing two integers. Instead, it always returns a `Float64`, even if the answer we get doesn't end up having decimal places.
+
+To get from our `Float64` `500500.0` to our expected integer output `500500`, we can use the inbuilt `convert` function, which will try to convert our `Float64` into `Int64`, giving an error if this isn't possible.
+
+```{julia}
+function sum1toNv2(N)
+    # Formula for summing integers from 1 to N
+    sumFloat64 = (N * (N+1)) / 2
+    # Corrected by converting the answer back into an Int64
+    return convert(Int64, sumFloat64)
+end
+```
+
+```{julia}
+sum1toNv2(1000)
+```
+
+### `if` statements and recursion
+
+We've seen two ways of solving our summing problem, but there's still more! Our next method will introduce *control flow*, in particular the `if` statement, which allows you to change what instructions your program runs depending on whether or not a condition is met. This will improve on our previous approach by allowing us to test if the input is sensible, since currently:
+
+```{julia}
+sum1toNv2(-53)
+```
+
+The `if` statement takes the following generic form:
+
+``` julia
+if <condition>
+    <code-if-true>
+else
+    <code-if-false>
+end
+```
+
+The condition can be written in many ways, but some of the most common are:
+
+-   `<value-1> == <value-2>` checks if the two values are equal. Conversely `<value-1> != <value-2>` checks if they are not equal.
+
+-   `<value-1> < <value-2>` checks if the first value is less than the second. The same works with `>` for greater than, `<=` for less than or equal to, and `>=` for greater than or equal to.
+
+-   `!<condition>` reverses the condition (so is true if the condition is false, and vice versa)
+
+-   `<condition-1> && <condition-2>` is called `AND`, which is true only when both conditions are met. Similarly, `<condition-1> || <condition-2>` is called `OR`, true when either (or both) of the conditions are met.
+
+-   Many functions can give conditions, usually ones with names beginning with `is`. For example, `iseven(N)` is true when the input `N` is an even number, and `issorted(v)` is true when the input `v` is a `Vector` type with all elements in order, such as `[1, 2, 3]` or `["a", "b", "c"]`
+
+We can try some of these conditions just by themselves, without the `if` statement, and Julia will tell us if they are true or false.
+
+```{julia}
+6 < 2
+```
+
+```{julia}
+"giraffe" < "hippopotamus" # Here, < means alphabetically before
+```
+
+```{julia}
+(iseven(12) && (3 == 2 + 1) && (5 + 3 == 2 * 4)) || iseven(3)
+```
+
+But if these values can be displayed by Julia, couldn't we make them into a variable? Indeed, we can (which is how the functions like `iseven` do it!), using the special type `Bool`, which can only be one of two values, `true` and `false`.
+
+```{julia}
+biggestnumber = (5 == max(1, 2, 5, 7))
+```
+
+```{julia}
+typeof(biggestnumber)
+```
+
+Any `Bool` variable can then be used in place of a condition.
+
+For our purposes, we want to check if the input to our function to sum from $1$ to $N$ is sensible, so we need it to be an integer which is at least $1$. We can write our own function for this, which returns a `Bool` to be used later as a condition:
+
+```{julia}
+function isvalidN(N)
+    # True if N is both an integer and greater than or equal to 1, false otherwise
+    return isinteger(N) && (N >= 1)
+end
+```
+
+```{julia}
+isvalidN(1000)
+```
+
+```{julia}
+isvalidN(-53)
+```
+
+We can now put that check before running our `sum1toNv2` function, using the `error` function to give our own error message.
+
+```{julia}
+function sum1toNv3(N)
+    # Checks if N is valid, if so, we can calculate as before
+    if isvalidN(N)
+        return sum1toNv2(N)
+    else
+        # If N is invalid, an error message is displayed
+        error("must be an integer and at least 1")
+    end
+end
+```
+
+```{julia}
+sum1toNv3(1000)
+```
+
+```{julia}
+sum1toNv3(-53)
+```
+
+We're not done with `if` statements quite yet though, as we can use them in introducing another programming technique, *recursion*. A function written with recursion has its output depend on evaluating the function on another input, usually a number one less than you began with, or perhaps a list with one less item. For recursion to work, it is crucial to implement some sort of stopping point, which doesn't rely on a further value of the function, otherwise it would keep going on forever, and this is often easiest to do with an `if` statement. As an example, here's an implementation of our usual summing from $1$ to $N$ function using recursion:
+
+```{julia}
+function sum1toNv4(N)
+    # Stopping point for recursion, when N is 1, the sum from 1 to N is just 1
+    if N == 1
+        return 1
+    else # Recursively calculates the sum from 1 to N-1, then adds N
+        return (sum1toNv4(N - 1) + N)
+    end
+end
+```
+
+Let's try this out on some inputs:
+
+```{julia}
+sum1toNv3(1000)
+```
+
+```{julia}
+sum1toNv4(-53)
+```
+
+What's happened here? By starting at the nonsensical value `-53`, we've ensured that the recursion can never stop, as no matter how many times we subtract `1`, we'll never get to `1`. Julia has inbuilt protection against this: if your function recurses too many times, it stops calculating and gives you an error message. Of course, we've missed the `isvalidN` function! Let's add that into our next version:
+
+```{julia}
+function sum1toNv5(N)
+    if !isvalidN(N)
+        error("must be an integer and at least 1")
+    # Missing out "else" is fine, Julia will just continue running past "end"
+    end
+
+    # No need to write the recursion again, this will work as we've checked the input
+    return sum1toNv4(N)
+
+end
+```
+
+```{julia}
+sum1toNv5(1000)
+```
+
+```{julia}
+sum1toNv5(-53)
+```
+
+However, we can still cause the same error as before by choosing a large enough value for `N`, in which case too much recursion will have happened before we get to `1`:
+
+```{julia}
+sum1toNv5(1000000)
+```
+
+There's another problem in recursion, which is efficiency. To calculate the sum from $1$ to $N$, our recursive function `sum1toNv4` has to do $N-1$ different sums, adding each number onto the preceding sum. Meanwhile, `sum1toNv2` has to do an addition, a multiplication, a division, and a type conversion, which is always four things however large $N$ is (although they do get slower the larger $N$ is, but not by the same amount as the recursive function).
+
+This means that for larger inputs, recursion can be quite slow. Julia has inbuilt timing functionality, for example by preceding our line of code with `@time`, we get an output to the console stating how long that line took.
+
+```{julia}
+@time sum1toNv2(50000)
+```
+
+```{julia}
+@time sum1toNv4(50000)
+```
+
+As we can see, the recursive method is far slower, so it's probably not the right solution to this problem. That isn't to say it wouldn't be useful in other situations, particularly if there is no neat formula as there is in this instance.
+
+As a side note, we've just seen a new type of feature of Julia, the *macro* `@time`. Macros, which look like `@<macro-name>`, are like functions in that they take an input and give an output, but their inputs are not values in parentheses, but the line of Julia code following them. They can then do something dynamically with the code, that may or may not involve running it. There are many inbuilt macros, some of which we'll meet later, and much like functions, we can write our own (although we won't have a need for that in this example).
+
+### Into the source code
+
+Picture the scene. You're stuck, on the same problem you've been stuck on for what feels like hours. Maybe days even, when did you last prise your eyes away from the computer screen and look outside? Searching online has only confused you further, and you feel like your knowledge of Julia just isn't getting you far enough towards a solution. Exhausted, you can only summon the willpower to type four more characters, and press enter:
+
+```{julia}
+help
+```
+
+Ok, maybe that's a little dramatic. But it's nice to see that Julia provides some further directions of where to go for help.
+
+The quickest and most useful thing you will do is look for help for a function, to see what it does. This is done in the REPL by typing `?` followed by the name of the function, as the message above says, or using the macro `@doc` as demonstrated below. Many functions with multiple definitions for different input types may display a large block of help text for the many different ways that the function could be used, but by specifying an argument, this can be reduced to just the one you want.
+
+```{julia}
+# @doc sqrt(100)
+```
+
+Also useful is the online documentation and manual for Julia, provided at <https://docs.julialang.org/>. By navigating using the menus on the left, or the search at the top left, you can find a glut of information on all aspects of Julia programming, from the most basic to much more specialised and advanced. Similar documentation is provided by many of the most common packages for Julia, such as *Plots.jl* at <https://docs.juliaplots.org/>.
+
+It's always worth checking before you define a variable or a function whether that name is already in use by something else, with the `?` functionality of the REPL or `@doc` macro usually the easiest way to see this. For example, the names `sum1toNv1` etc. were chosen above because `sum` is already taken. What does `sum` do? Let's see:
+
+```{julia}
+# @doc sum
+```
+
+That's quite a lot of text. Indeed, we can see all of the *methods*, that is possible versions of the function depending on the input types, using the function `methods`:
+
+```{julia}
+methods(sum)
+```
+
+If we look at the documentation carefully, we spot the line:
+
+``` julia-repl
+julia> sum(1:20)
+210
+```
+
+That looks like what we want to do! Indeed:
+
+```{julia}
+sum1toNv2(20)
+```
+
+```{julia}
+sum(1:1000)
+```
+
+Evidently, this is the quickest way to solve the problem we had. But how does this function do it? One of the great aspects of Julia is that even the inbuilt functionality is publically available, and most of it (apart from the absolute lowest level parts) is written in Julia. So we can go and find where this function is defined, and see what calculations it's doing.
+
+First, to find the method that has been used for this particular input, we can either look through the output of `methods` to identify it, or easier, use the macro `@which`:
+
+```{julia}
+@which sum(1:1000)
+```
+
+Julia's source code can be found at [https://github.com/JuliaLang/julia/](https://github.com/JuliaLang/julia/). We're told that this definition is in `Base`, so we navigate into the folder *base*, and find *range.jl*. Scrolling down to the requisite line number, we find the function definition:
+
+``` julia
+function sum(r::AbstractRange{<:Real})
+    l = length(r)
+    # note that a little care is required to avoid overflow in l*(l-1)/2
+    return l * first(r) + (iseven(l) ? (step(r) * (l-1)) * (l>>1)
+                                     : (step(r) * l) * ((l-1)>>1))
+end
+```
+
+Let's unpack what this means. Firstly, we note that its input has `::AbstractRange{<:Real}` after it. The second type following the first in curly brackets `{}` is called a *parametric type*, which tells Julia something more about the type than the initial name suggests. The expression as a whole is used for multiple dispatch to tell Julia what types are allowed to be used in this method. But our input `1:1000` seems to have the wrong type:
+
+```{julia}
+typeof(1:1000)
+```
+
+Types aren't disconnected from each other, however, and they are coded to inherit from other code types, allowing them to behave like one for the purposes of multiple dispatch (among other uses). As it turns out `UnitRange` is a subtype of `AbstractRange`, and the parametric type `Int64` is a subtype of `Real`. Anything that can be *promoted* to, i.e. is a subtype of, `AbstractRange` is acceptable as a type, while `<:Real` means that the parametric type associated must be a subtype of `Real`. Both of these conditions are met, so `1:1000` is a valid input for this method and we can proceed with it.
+
+Now let's look at what the rest of the function does. There's a couple of bits of syntax we haven't met before, the `?`, the `:`, and the `>>` (we've seen all these symbols used before, but for different purposes). We can find what these do with the help functionality that we've already seen.
+
+The `?` and `:` go together as part of the *ternary operator*, which allows for a shorter way to write `if`-`else` statements in specific cases. Specifically, it equates to the following code:
+
+``` julia
+if <condition>
+    x = <value-1>
+else                   ←--→       x = <condition> ? <value-1> : <value-2>
+    x = <value-2>
+end
+```
+
+```{julia}
+parity12 = iseven(12) ? "even" : "odd"
+```
+
+```{julia}
+parity13 = iseven(13) ? "even" : "odd"
+```
+
+The `>>` means a right bit shift by 1. Since all of the numbers are stored in the computer as binary numbers, this shifts the digits of a number to the right. We can imagine in our base $10$ system that shifting all the digits right one place would have the effect of dividing by $10$, so the bit shift has the effect of dividing our number by $2$:
+
+```{julia}
+14 >> 1
+```
+
+Why does it say that *"care is required"*? Well, `>>1` isn't exactly like dividing by $2$, because for odd numbers, it will lose the remainder:
+
+```{julia}
+7 >> 1
+```
+
+Hence, if `l` is even, it divides that by $2$, and if not, then `l` is odd, but `l-1` is even, so it divides that by $2$ instead. Clever! And avoids the issue with `Float64`s when dividing earlier.
+
+The two functions `first` and `step` tell us the first value in the input range (which for us is always $1$) and the gap between successive values (again, always $1$ for us, as we're dealing with sequences of successive integers). We can now understand what the function is doing on the input `1:N`: - First, it finds the length of the range, which is `N` - Next, it multiplies this by `1`, giving `N` - If `N` is even, it halves it and multiplies it by `N-1` - If `N` is odd, it halves `N-1` and multiplies it by `N` - Then, it adds the `N` it calculated earlier to whichever product it gets, and outputs the result Algebraically, then, it does:
+
+$$
+N + \frac{N}{2} \times (N - 1) \quad \text{or} \quad N + \frac{N-1}{2} \times N
+$$
+
+which is equal to `\frac{N(N+1)}{2}` in either case. So it's more or less doing our `sum1toNv2` method, just altered to work for a wider range of inputs.
+
+In this case, we haven't really found a new way of solving the problem, but we have learnt a few things about Julia along the way. Journeying into the source code like this can be overwhelming at times, but it can also show you ways of doing things that you may not have come across before, and are likely optimised to work as well as possible for all sorts of applications.
+
+One final note: we started by adding up integers by typing the sum out by hand, but stopped because we quickly realised it would be inefficient. However, what if there was a way to effectively make Julia write out the sum, and then evaluate it? In fact, there is:
+
+```{julia}
+eval(Meta.parse(*(["$n +" for n ∈ 1:999]…, "1000")))
+```
+
+There are several concepts used here that haven't been covered above. Nonetheless, if you feel like a challenge, the names of the concepts are listed below, with brief explanations if you hover over the blurred text, but you are encouraged to use `?`, `@doc`, and the Julia manual <https://docs.julialang.org/> to learn what each part means.
+
+Markdown.MD(Markdown.Admonition("hint","String interpolation",\[md"By following a dollar sign `$` with a variable name, the string is created with the value of that variable inserted. [Read more](https://docs.julialang.org/en/v1/manual/strings/#string-interpolation)."\]))
+
+Markdown.MD(Markdown.Admonition("hint","Array comprehension",\[md"A vector (or larger array) can be created by giving values for each of a sequence of indices. This is done by giving the value, followed by the familiar start of a `for` loop. [Read more](https://docs.julialang.org/en/v1/manual/arrays/#man-comprehensions)."\]))
+
+Markdown.MD(Markdown.Admonition("hint","∈",\[md"An alias for the keyword `in`, typed by `\in` followed by pressing tab."\]))
+
+Markdown.MD(Markdown.Admonition("hint","Splatting",\[md"Syntax to empty out the contents of a list into individual inputs into a function. [Read more](https://docs.julialang.org/en/v1/manual/functions/#Varargs-Functions)."\]))
+
+Markdown.MD(Markdown.Admonition("hint","String concatenation",\[md"The asterisk function `*` with arbitrarily many string inputs outputs one long string given by putting the inputs end to end. [Read more](https://docs.julialang.org/en/v1/manual/arrays/#man-comprehensions)."\]))
+
+Markdown.MD(Markdown.Admonition("hint","Evaluating strings as code",\[md"Combining the functions `eval` and `Meta.parse` simulates how Julia reads code and turns it into instructions. [Read more](https://docs.julialang.org/en/v1/manual/metaprogramming/#Program-representation)."\]))
