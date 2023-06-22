@@ -1,0 +1,893 @@
+---
+title: "Julia Introduction"
+format:
+    html:
+        code-fold: true
+  
+execute: 
+    eval: true
+    error: true
+toc: true
+---
+
+# Different types of numbers in Julia
+
+Numbers are ubiquitous in Julia programming, as well as in programming in general. Almost every programmer has at some early point in their learning set `a` to be `1`, `b` to be `2`, and added them together. Every operation that a computer does can be reduced down to a basic arithmetic operation called a logic gate. Indeed, numbers are so intrinsic to Julia that they are one of the few things to be part of the `Core`.
+
+However, all is not as it may seem on the surface. When calculating with numbers in Julia, it's only a matter of time before you run into some unexpected results, such as:
+
+```{julia}
+#| code-fold: false
+
+0.1 + 0.2
+```
+
+```{julia}
+#| code-fold: false
+
+2^100
+```
+
+```{julia}
+#| code-fold: false
+
+cos(π) # Julia can calculate this accurately...
+```
+
+```{julia}
+#| code-fold: false
+
+cos(π/2) # ...but not this?
+```
+
+These examples (and many others) demonstrate that the way that computers calculate is not quite the same as we are used to. Much of this is to do with the *type* of the numbers in question.
+
+## Overview of types
+
+We've already met types in an earlier section of the introduction, but here's a quick refresher. All data within Julia, including every variable, every literal (that is, data given as a specific value, like `22`, rather than a variable name referring to a value, like `x`), even every bit of code, has a type, which does several things:
+
+-   It tells Julia how to store the data in the computer's memory
+
+-   It tells Julia how to read the value from the computer's memory
+
+-   It tells Julia how to react when the data is operated on or passed to a function (which we call *multiple dispatch*)
+
+Combined together, Julia is able to work out what to do with data before knowing the exact value of the data (much like you know how to use a pen regardless of what colour it is). This is very flexible for programmers, and very efficient for computation.
+
+Types are arranged into the *type graph*, which is better described as a tree structure, with every type given a *parent type* or *supertype*. Mostly, these parent types are *abstract*, meaning that they can't exist as data themselves, but serve as a label to refer to any and all of the types below them. The opposite of an abstract type is a *concrete* type, which is a type that data can take. (There is a third option, the *parametric* type, which we'll meet later). The presence of abstract types can be very useful for multiple dispatch, allowing a function to be written to apply to several different type inputs at the same time.
+
+To get a bit of a better idea of this structure, we'll look at all of the different types that come under the abstract type `Number` by default in Julia:
+
+```{julia}
+#| code-summary: "Show code to generate diagram"
+
+# Useful for convenient broadcasting in the arrange function
+import Base.+
++(x::Any,::Nothing) = x
+
+# Arranges the subtype tree of T with positions of each of the subtypes
+# Format of output is a vector of tuples of the form:
+#     (type, number of nodes below, depth, position from top)
+function arrange(T::Type)
+
+    # Deals with small cases, where a type is not defined in Base we ignore it
+    isdefined(Base, Symbol(T)) || return Tuple{Type, Int64, Int64, Rational{Int64}}[]
+	isabstracttype(T) || return [(T, 1, 1, 1//1)]
+
+	subT = subtypes(T)
+    
+	typelist = Tuple{Type, Int64, Int64, Rational{Int64}}[]
+	offset = 0
+	for S ∈ subT
+        
+        # Prevents an infinite loop
+        S == Any && continue
+        # Recursively gets the arrangement of each subtype
+		Stypelist = arrange(S)
+
+        # Alters the arrangement to fit with the new graph
+		append!(typelist,
+			[st .+ (nothing, nothing, 1, offset) for st ∈ Stypelist]
+		)
+        # Recalculates the offset to accommodate for the new points added
+		isempty(Stypelist) || (offset += (Stypelist[end])[2] + 1)
+        
+	end
+    # Adds the tuple for T itself to the end of the vector, and returns
+	push!(typelist, (T, offset, 1, offset//2))
+	
+end
+
+using Plots
+# Plots the type tree for the subtypes of T
+function typetree(T::Type)
+
+	typelist = arrange(T)
+
+	types::Vector{Type}                 = [st[1] for st ∈ typelist]
+	spans::Vector{Int64}                = [st[2] for st ∈ typelist]
+	depths::Vector{Int64}               = [st[3] for st ∈ typelist]
+	vpositions::Vector{Rational{Int64}} = [st[4] for st ∈ typelist]
+	n = length(typelist)
+
+	xgap = 750 ÷ max(depths...)
+	ygap = 750 ÷ spans[end]
+
+	plot(
+		size = (750, 750),
+		grid = false,
+		showaxis = false,
+		legend = false,
+		xlims = (xgap - 50, 750 + 50),
+		ylims = (ygap - 20, 750 + 20)
+	)
+
+    # Abstract types in grey, concrete types in black
+	plot!(
+		annotations = [
+			(depths[i] * xgap, vpositions[i] * ygap,
+			(types[i], 10, isabstracttype(types[i]) ? :grey : :black), "sans-serif")
+			for i ∈ 1:n
+		]
+	)
+
+	lines = [
+		([(depths[i] + 1//2) * xgap, (depths[i] + 1//2) * xgap],
+		[(vpositions[i] - spans[i]//2) * ygap, (vpositions[i] + spans[i]//2) * ygap])
+		for i ∈ 1:n if isabstracttype(types[i])
+	]
+
+    # Lines delineate the set of subtypes for each abstract type
+	plot!(
+		[Shape(line...) for line ∈ lines],
+		fillcolor = :white,
+		linecolor = :lightgrey,
+		linewidth = 4
+	)
+	
+end
+
+typetree(Number)
+```
+
+Suppose we want to write a function that will work for all types of integers. Integers could come in many forms, such as `UInt8` or `Int64`, but instead of writing a separate method for each of these, we can just write one for the abstract type `Integer` instead, and it will be called regardless of the exact type of the data we input (as long as it is below `Integer` on this diagram).
+
+We'll explore each of these types in more detail in turn, seeing how in some cases they differ from the way we'd expect numbers to behave, and how we can make use of this or avoid the problems it causes.
+
+## The `Int` and `UInt` types
+
+The most common numeric types are in the `Int` family, specifically `Int64`, although the others work similarly, so we'll cover them all together. We'll also look at the `UInt` family, which is much the same as well, but with a minor difference that makes it applicable in different scenarios.
+
+First, why are they called `Int` and `UInt`? `Int` is short for integer, and indeed this describes the numbers that can be stored in these formats: whole numbers. Meanwhile, the `U` in `UInt` stands for `Unsigned` (as we see in the diagram above), which means we can't have a minus sign, so we can only have positive numbers or zero, which may or may not be desirable. If we do need negative numbers, then we need to use a `Signed` type, such as one of the `Int` types, instead. We're not considering `BigInt` here, as it works differently, so we'll cover than in a later section.
+
+### `UInt`
+
+Before we look at any of these data types, let's consider a more familiar example. Suppose we have a calculator with an 8 digit display:
+
+```{julia}
+#| code-summary: "Show code defining `sevensegment`"
+
+# Defines which segments light up for each number
+# nothing represents an empty space, -1 represents a minus sign
+digitionary = Dict(
+	nothing => ntuple(_ -> false, 7),
+    -1 => (false, false, false, true , false, false, false),
+	0  => (true , true , true , false, true , true , true ),
+	1  => (false, false, true , false, false, true , false),
+	2  => (true , false, true , true , true , false, true ),
+	3  => (true , false, true , true , false, true , true ),
+	4  => (false, true , true , true , false, true , false),
+	5  => (true , true , false, true , false, true , true ),
+	6  => (true , true , false, true , true , true , true ),
+	7  => (true , false, true , false, false, true , false),
+	8  => (true , true , true , true , true , true , true ),
+	9  => (true , true , true , true , false, true , true ),
+)
+
+# Defines the corners of the seven segments
+shapedex = Dict(
+	1 => ([-25, -20, 20, 25, 20, -20], [60, 65, 65, 60, 55, 55]),
+	2 => ([-30, -35, -35, -30, -25, -25], [5, 10, 50, 55, 50, 10]),
+	3 => ([30, 35, 35, 30, 25, 25], [5, 10, 50, 55, 50, 10]),
+	4 => ([-25, -20, 20, 25, 20, -20], [0, 5, 5, 0, -5, -5]),
+	5 => ([-30, -35, -35, -30, -25, -25], [-5, -10, -50, -55, -50, -10]),
+	6 => ([30, 35, 35, 30, 25, 25], [-5, -10, -50, -55, -50, -10]),
+	7 => ([-25, -20, 20, 25, 20, -20], [-60, -55, -55, -60, -65, -65])
+)
+
+# N is the number to be displayed
+# n is the number of digits to display it in
+# If negative numbers are allowed, the first digit will be taken up by a minus sign
+function sevensegment(N, n, allownegative = false)
+
+	# The number that will actually be displayed
+    # Without negatives allowed, functions like UInt
+	# With negatives allowed, not exactly like Int, as can't display -10^(n-1)
+	N = allownegative ?
+		mod(N, -(10^(n-1)-1):(10^(n-1)-1)) :
+		mod(N, 10^n)
+
+    # Logic to work out the sequence of digits to be displayed
+    digitsN = digits(abs(N))
+	truncateddigitsN = reverse(digitsN[1:min(length(digitsN), n - allownegative)])
+	displaydigits = [
+        allownegative ? (N < 0 ? -1 : nothing) : Nothing[];
+        fill(nothing, n - allownegative - length(truncateddigitsN));
+        truncateddigitsN
+    ]
+
+    # Creates canvas to work on
+	p = plot(
+		size = (75n + 20, 150),
+		grid = false,
+		showaxis = false,
+		legend = false,
+		ticks = false,
+		framestyle = :origin,
+		xlims = (25, 75n + 35),
+		ylims = (-75, 75),
+		bg = :black
+	)
+
+    # Plots segments with colours according to digits
+	for i ∈ 1:n
+		for j ∈ 1:7
+			plot!(
+				p,
+				Shape(broadcast(.+, shapedex[j], (75i, 0))...),
+				fillcolor = (digitionary[displaydigits[i]][j] ? :red : :grey15),
+				linewidth = 0
+			)
+		end
+	end
+
+	return p
+	
+end;
+```
+
+```{julia}
+#| code-fold: false
+
+# Custom function
+# First argument is number to be displayed
+# Second argument is number of digits
+sevensegment(0, 8)
+```
+
+This calculator can display the numbers from `0` to `99999999` (it doesn't have a minus sign). What if we try to calculate something that goes beyond this range? For example, let's try multiplying `12345` by `67890`, to which the correct answer would be the nine digit number `838102050`:
+
+```{julia}
+#| code-fold: false
+
+sevensegment(12345 * 67890, 8)
+```
+
+It didn't have space for the first digit `8`, so it simply cut it off and showed the smaller digits. By analogy to water overflowing a container with lesser volume, this is called *integer overflow*, with the excess digits being simply lost. Of course, most calculators are designed to deal with this sort of issue in a more elegant fashion, but as we'll see, this is exactly what will happen in Julia when we try calculations with answers that are too big.
+
+A related error is *integer underflow*, which happens when we try to calculate a number that is too small to be displayed:
+
+```{julia}
+#| code-fold: false
+
+sevensegment(3 - 5, 8)
+```
+
+Here, we've tried to subtract `5` from `3`, but as we've already discussed, this calculator can't do negative numbers, so instead we end up wrapping back around to the biggest numbers that the calculator can display and counting down from there.
+
+This demonstration shows more or less how the `UInt` types work. Each has a set number of bits, or binary digits (since computers work in binary), to store numeric values in, `8` for `UInt8`, `16` for `UInt16`, etc. If we consider `UInt8`, then this has `8` bits to store numbers, so can only accurately describe the numbers `0` to `255`, since `255 = 2^8 - 1`. If we try to add one more, then:
+
+```{julia}
+#| code-fold: false
+
+UInt8(255) + UInt8(1)
+```
+
+```{julia}
+#| code-fold: false
+
+UInt8(0)
+```
+
+The way that these numbers is displayed may look slightly strange, but this is to distinguish these numbers from `Int` types, which are more commonly used. Specifically it is `0x` (denoting unsigned integers) followed by the hexadecimal representation (that is, base 16), but we needn't worry too much about that. What's important is that when we add `1` to `255` as `UInt8`s, we get `0`, the expected result of integer overflow. We can also demonstrate integer underflow:
+
+```{julia}
+#| code-fold: false
+
+UInt8(0) - UInt8(1)
+```
+
+```{julia}
+#| code-fold: false
+
+UInt8(255)
+```
+
+To see a little more clearly how the `UInt8` type works, we're lucky enough to be able to see the exact bits that are stored. This is because `UInt8`, along with many of the other numeric types we'll see here are *primitive* types, meaning that they are stored exactly as the bits that represent them in the computer (the alternative is a *composite* type, which can be thought of as a list of property names, with locations where the corresponding data is stored). Any data which has a primitive type can be input into the inbuilt Julia function `bitstring`, which outputs a string of `0`s and `1`s that are exactly the bits used to represent that number. For example:
+
+```{julia}
+#| code-fold: false
+
+bitstring(UInt8(100))
+```
+
+Indeed, 100 = 64 + 32 + 4, so it is represented in binary as `1100100`, with the extra `0` in the bit string above to pad it out to 8 binary digits as `UInt8` requires. We can now see why the integer overflow happens, if we try to add two numbers and we end up carrying a `1` beyond the end of the number, then it is lost, which has the effect of wrapping back around to where we started.
+
+The other `UInt` types work much the same, except they take up a greater number of bits, meaning that they can store bigger numbers at the cost of more space. For example, the largest number that can be stored as a `UInt128` is `340282366920938463463374607431768211455`, i.e. `2^128 - 1`.
+
+Depending on what our data is actually representing, `UInt` types may or may not be appropriate. For example, if we're storing the population of various cities, this will never be negative, and the maximum `UInt32` is `4294967295` (approximately four billion), so `UInt32` may be appropriate as a choice of type. However, if we're storing the change in population from the last year, then this could be negative, so a `UInt` type would no longer suffice. Instead, we need a signed `Int` type.
+
+### `Int`
+
+To see how `Int` types work, we'll return again to the calculator, but this time add a third argument. The `true` here sets a variable to allow negative numbers to be shown:
+
+```{julia}
+#| code-fold: false
+
+sevensegment(-1234, 8, true)
+```
+
+Great, so this is an improvement to the calculator, right? It could be, but it has come with a cost, we've lost use of the first digit! So we can do negative numbers, but we need to compromise by lowering the maximum value that we can display accurately. What happens if we overflow this time?
+
+```{julia}
+#| code-fold: false
+
+sevensegment(9999999 + 1, 8, true)
+```
+
+Again, we wrap around, but this time, the smallest number isn't `0`, it's `-9999999`, so that's our answer. Underflows will occur similarly, wrapping around to the largest number `9999999` and counting down as appropriate. This is roughly how the `Int` types work, again as a demonstration we'll consider the smallest one, which is `Int8`.
+
+We've seen how a `UInt8` is simply a binary number with a limited number of digits. For example, if a `UInt8` has bit string `"11010011"`, then we can work out which number this represents by:
+
+$$
+\begin{matrix}
+128 & 64 & 32 & 16 & 8 & 4 & 2 & 1 \\\hline
+1 & 1 & 0 & 1 & 0 & 0 & 1 & 1
+\end{matrix} \qquad \qquad 128 + 64 + 16 + 2 + 1 = 211
+$$
+
+```{julia}
+#| code-fold: false
+
+Int64(parse(UInt8, "11010011", base = 2))
+```
+
+The way that `Int` types such as `Int8` work is to make the first digit subtract instead of add if there is a `1`. We can think of it as a "-128s" place instead of a "128s" place, as follows:
+
+$$
+\begin{matrix}
+-128 & 64 & 32 & 16 & 8 & 4 & 2 & 1 \\\hline
+1 & 1 & 0 & 1 & 0 & 0 & 1 & 1
+\end{matrix} \qquad \qquad -128 + 64 + 16 + 2 + 1 = -45
+$$
+
+```{julia}
+#| code-fold: false
+
+parse(Int8, "11010011", base = 2)
+```
+
+This means that `Int8` can represent any number from `-128` to `127` (as with all the `Int` types, there's one more negative number that it can represent than positive). We can see this as well with bit strings:
+
+```{julia}
+#| code-fold: false
+
+bitstring(Int8(127))
+```
+
+```{julia}
+#| code-fold: false
+
+bitstring(Int8(-128))
+```
+
+Similarly, the other `Int` types work much like their `UInt` counterparts, but with the first bit corresponding to a subtracting of a power of 2 rather than the addition of one.
+
+In general, `Int64` is the default whenever you type a number into Julia. An `Int` type is default rather than a `UInt` as it's generally more useful to have the ability to use negative numbers if needed, rather than a load more large positive numbers. As for `64`, modern systems run on 64-bit architecture, i.e. they are built to deal with data in blocks of 64 bits, so it's sensible to store numbers in that format. Some older systems may use 32-bit architecture, in which case Julia will use `Int32` as the default type correspondingly.
+
+However, if you type in a number that's too big (or too small, if it's negative) to be stored in `Int64` format, Julia won't truncate it, instead, it will change the type of the input. First, it will try to store it as an `Int128`, and if that doesn't work, it will store it as a `BigInt`. We can demonstrate this with the `typemax` function, which will tell us that maximum value that the input type can store:
+
+```{julia}
+#| code-fold: false
+
+typemax(Int64)
+```
+
+```{julia}
+#| code-fold: false
+
+typeof(9223372036854775807) # Biggest possible Int64
+```
+
+```{julia}
+#| code-fold: false
+
+typeof(9223372036854775808) # Too big to be an Int64, so is an Int128
+```
+
+## `BigInt` and `Bool`
+
+We've got two more types under the umbrella of `Integer` that we haven't met yet, the `Signed` type `BigInt`, and the type `Bool` which is neither `Signed` nor `Unsigned`. Let's investigate them further.
+
+### `BigInt`
+
+As its name suggests, `BigInt` is used for storing big integers, specifically those that are too big to be stored in any of the normal formats. Since it is `Signed`, we can infer (correctly) that it is also able to store integers that are too small, smaller than the smallest negative number that `Int128` can handle. Indeed, any integer that you can type in can be stored precisely as a `BigInt`:
+
+```{julia}
+#| code-fold: false
+ 
+googol = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+```
+
+```{julia}
+#| code-fold: false
+
+typeof(googol)
+```
+
+The drawback to `BigInt` is that Julia doesn't get much information about the number from the type alone (with `Int64` for example, Julia knows that the number will be a certain size), so calculations cannot be optimised as well. As a result, `BigInt` is recommended to be used only when the precision or size requires it.
+
+### `Bool`
+
+The final `Integer` type is `Bool`, which isn't like the other `Signed` and `Unsigned` types. In fact, we often don't think of it as a number at all, rather we think of it in terms of its two possible values, `true` and `false`, which are called the logical values, or Boolean values (hence `Bool`). `Bool` values are returned by various functions like `iseven`, and are used most notably as conditions in `if` statements, or alternative Julia syntax such as short-circuited operations `&&` and `||`, as well as the ternary operator `? :`.
+
+Why are `Bool`s considered to be integers then? `Bool` is a primitive type, so we can use `bitstring` to help find out:
+
+```{julia}
+#| code-fold: false
+
+bitstring(false)
+```
+
+```{julia}
+#| code-fold: false
+
+bitstring(true)
+```
+
+The answer is that they really are integers, `false` is `0` and `true`is `1`! Indeed, some programming languages don't distinguish a special data type for `true` and `false`, instead just using `1` and `0` respectively, which means that some programmers are used to doing things such as multiplying Boolean values together for the logical operation `AND` (where `x AND y` is `true` if both `x` and `y` are `true`, otherwise it is `false`, just as `x * y` is `1` if both `x` and `y` are `1`, otherwise it is `0`). To allow for this, Julia treats `Bool` as a type of `Number`, and defines operations such as:
+
+```{julia}
+#| code-fold: false
+
+true + 7 # 1 + 7 = 8
+```
+
+```{julia}
+#| code-fold: false
+
+true * false # 1 * 0 = 0
+```
+
+```{julia}
+#| code-fold: false
+
+false ^ false # 0 ^ 0 = 1
+```
+
+## The `Float` types
+
+We've seen many ways of representing integers, but from the type diagram we can see that there are many other types of numbers that Julia can represent. Of these, the types that come under the abstract umbrella `AbstractFloat` are the most important, particularly `Float16`, `Float32`, and `Float64`. These are not unique to Julia, indeed the industry standard *IEEE-754* ensures that across all programming languages and all systems, such numbers behave exactly the same, which as we'll see is necessary due to their many quirks.
+
+### Floating-point numbers
+
+In this context, `Float` means *floating-point number*, which is a number defined by three parts:
+
+-   The *sign* (either positive or negative)
+
+-   The significant digits (*mantissa* or *significand*)
+
+-   The position of the (binary) decimal point relative to those digits (*exponent*)
+
+The inclusion of this final part is what gives the *floating-point* name, since the decimal point can move around to describe a wider variety of numbers.
+
+This idea may be familiar as scientific notation. For example, the speed of light in a vacuum is $299792458\,\mathrm{ms}^{-1}$ (exactly, as that defines the length of a metre), but this is often represented as $3.00 \times 10^8 \,\mathrm{ms}^{-1}$. This is positive, so we don't write the sign, but we understand that the lack of a sign means positive. We choose a level of precision of three significant figures, with the first three significant figures being $3$, $0$, $0$ in this instance, and we write this as a decimal with the decimal point placed after the first digit. Finally, we multiply by an appropriate power of ten to match the size of the exact number we started with, here being $10^8$. Assuming that it is understood that we are working with three significant figures, we could write this even more compactly as `+3008`, where the `+` tells us that the number is positive, the first three digits after that are the significant figures or mantissa, and the rest (the `8`) is the exponent. While this format is pretty unreadable to human eyes, it turns out to be rather nice for computers.
+
+Floating-point numbers use the same idea. As their names suggest, `Float16`, `Float32`, and `Float64` (also sometimes known as *half*, *single*, and *double* precision for historical reasons) have 16, 32, and 64 binary digits to use. The first in each case is always the sign bit (`0` for positive, `1` for negative), with the rest needing to be split between the exponent and the mantissa. This is an arbitrary but important choice, with the standard *IEEE-754* decreeing the following split:
+
+| Type      | Bits for exponent | Bits for mantissa |
+|-----------|-------------------|-------------------|
+| `Float16` | 5                 | 10                |
+| `Float32` | 8                 | 23                |
+| `Float64` | 11                | 52                |
+
+### Bit representation
+
+What does this actually look like in bits? Again, these three types are primitive types, so we can investigate as before with the `bitstring` function. Any decimal typed into Julia will be interpreted as a `Float64` automatically, but we'll convert to `Float16` for a simpler example.
+
+```{julia}
+#| code-fold: false
+
+bitstring(Float16(0.1))
+```
+
+Referring to the table above, we see that this splits into three parts as:
+
+-   Sign bit `0` (so positive)
+
+-   Exponent bits `01011`
+
+-   Mantissa bits `1001100110`
+
+The sign bit is straightforward enough, but the exponent and mantissa bits are not quite as they seem. With a 5 bit exponent, we could expect to represent any of the numbers from $0$ to $31$, but this is useless for representing any number between $0$ and $1$, as they all have negative exponents. Therefore, there is an inbuilt offset of $-15$, so that instead we represent the exponents $-15$ to $16$. In fact, we do something different (see later) when the exponent bits are all `0` or all `1`, so the normal exponents that we can represent are $-14$ to $15$ for `Float16`s. This works similarly for `Float32`s and `Float64`s, with exponents $-126$ to $127$ and $-1022$ to $1023$ allowed respectively.
+
+As for the mantissa, we could simply store the first 10 significant bits, but that would actually be a little redundant, as in binary, the first bit would (apart from in one very important case, again see later) always be a `1`. As a result, this is `1` is not stored, and instead the 2nd to the 11th significant bits are stored. The same is done for `Float32` and `Float64`, with the 2nd to 24th and 2nd to 53rd significant bits stored respectively.
+
+Returning to $0.1$, let's work backwards. The exponent bits is `01011`, which is $11$ in decimal, but after the offset it represents $-4$. The mantissa bits are `1001100110`, so adding the implied `1` back in gives `1.1001100110`. Then, we offset by 4 binary places in the negative direction, so the actual number represented is the binary number `0.00011001100110`, which in decimal is $0.0999755859375$.
+
+What's gone wrong here? We tried to represent $0.1$, but instead Julia gave us a number that's just under one forty-thousandth less. The reason is that, just as we couldn't represent the speed of light exactly with three significant figures, Julia can't represent $0.1$ exactly with a 10 bit mantissa. In fact, $0.1$ is `0.0001100110011…` in binary, a recurring decimal, so no matter how many bits we allow for the mantissa, we could never store it exactly. Julia merely rounds to the nearest number it can represent, which happens to be $0.0999755859375$.
+
+Confusingly, Julia will display exact decimal values such as `0.1` even if the actual stored values are different. This is a design choice, implemented by the `Base.Ryu` module (which implements the [Ryū algorithm](https://dl.acm.org/doi/10.1145/3296979.3192369)), with the output number being the number with the least digits that rounds to the given floating-point number. While this prevents strange behaviour such as typing in `0.1` and Julia echoing back `0.1000000000000000055511151231257827021181583404541015625` (which is the closest `Float64` representable value to `0.1`, so is actually the true value stored and used for calculating), it does mask some of the strange behaviour of floating-point arithmetic that we've started to uncover. Julia also always displays a decimal point for floating-point numbers, even if they are integers, to clearly distinguish them from `Int` types, and similarly, typing `.0` will turn an integer input into a floating-point input.
+
+```{julia}
+#| code-fold: true
+
+typeof(12)
+```
+
+```{julia}
+#| code-fold: true
+
+typeof(12.0)
+```
+
+Instead of actual numbers, floating-point numbers can be more accurately thought of as an interval of the number line, containing all of the numbers that round to that specific floating-point representation. For example, the `Float16` `0.1` can be thought of as *"all the numbers between* $0.099945068359375$ *and* $0.100006103515625$*"*, since any number in that range would round to the closest possible representable number, being $0.0999755859375$. As the exponent gets smaller, consecutive floating-point representable numbers get closer together, so the intervals are much narrower near 0, with the higher density of representable numbers, and widen towards smaller/larger numbers.
+
+### Distribution of floating-point numbers
+
+Since we have only 16 bits to choose, there are a very limited number of possible `Float16` numbers. However, unlike with `Integer` types, these are not evenly spaced, in fact they are very much concentrated around 0, as the diagram below demonstrates:
+
+```{julia}
+#| code-summary: Show code to generate diagram
+
+# Generate a vector of all possible Float16s from their bitstrings
+float16s = [reinterpret(Float16, n) for n ∈ 0x0000:0xffff]
+
+# Parameters for the diagram
+totalwidth = 20
+intervalwidth = 0.1
+
+# List of endpoints of intervals
+intervals = -totalwidth/2:intervalwidth:totalwidth/2
+nbins = length(intervals) - 1
+# Counts the number of Float16s found in each interval
+frequencies = [count(x -> intervals[i] ≤ x < intervals[i+1], float16s) for i ∈ 1:nbins]
+
+# Plot the diagram
+plot(
+	intervals[1:nbins] .+ intervalwidth/2,
+	frequencies ./ intervalwidth,
+	legend = false,
+	showaxis = :x,
+	yticks = false,
+    title = "Density of Float16s"
+)
+```
+
+This is a consequence of the design, since in general numbers closer to 0 can be represented with fewer significant digits, and so more can be represented when we are limited to only 10 mantissa bits. However, this turns out to be an advantage, as it's also useful to distinguish many small numbers, since the difference between them is relatively much larger than between bigger numbers (for example, the difference between $500\,\mathrm{g}$ and $501\,\mathrm{g}$ is much less important than between $0.5\,\mathrm{g}$ and $1.5\,\mathrm{g}$.
+
+Given the format we've met above, we can reason what the largest `Float16` could be. We want to maximise both the mantissa and the exponent, but since the exponent can't be all ones, it must be `"11110"` (representing a shift of the decimal point by $15$), while the mantissa is `"1111111111"`. Adding the implied bit, and moving the decimal point, we get the binary number `1111111111100000`, which is $65504$ in decimal. Indeed:
+
+```{julia}
+#| code-fold: false
+
+bitstring(floatmax(Float16)) # floatmax gives the largest normally represented floating-point number
+```
+
+Technically, this is the second largest `Float16` value, since there is a positive infinite value to represent anything that needs a larger exponent than $15$ to describe.
+
+As for the smallest (positive) value that `Float16` could take, we might guess that it is when the exponent is `"00001"` and the mantissa `"0000000000"`, which is $0.00006103515625 = \tfrac{1}{16384}$.
+
+```{julia}
+#| code-fold: false
+
+bitstring(floatmin(Float16)) # floatmin gives the smallest positive normally represented floating-point number
+```
+
+However, this is where the exponent `00000` comes in, working differently to other exponents. It turns out that there are a lot of positive floating-point numbers less than this.
+
+### Floating-point arithmetic and errors
+
+If we think of floating-point numbers as a range in which the true value lies, then it's unsurprising that arithmetic won't exactly work as we might expect, particularly when adding numbers of wildly different sizes, or subtracting numbers that are very close to each other. As an example, we'll try to calculate the derivative of $f(x) = x^2$ using the formula:
+
+$$
+\frac{\delta f}{\delta x}(x, \delta x) = \frac{f(x + \delta x) - f(x)}{\delta x}, \qquad f'(x) = \lim_{\delta x \to 0} \left( \frac{\delta f}{\delta x}(x, \delta x) \right)
+$$
+
+Since we can't actually plug $0$ into this formula (we'd end up dividing $0$ by $0$), we have to try smaller and smaller values of $\delta x$. We'll try it with `Float16` arithmetic to calculate $f'(1)$, starting at `0.1` and making our way down in steps of `0.0001` to `0.0001` (of course, the exact values used in the computation will be the nearest that `Float16` can approximate these by). We'll then graph the result to get an idea of where the values are converging to:
+
+```{julia}
+#| code-summary: "Show code to generate graph"
+
+f(x) = x^2
+δfδx(x, δx) = (f(x + δx) - f(x))/δx # The approximate derivative δf/δx at x
+
+plot(
+	Float16(0.0001):Float16(0.0001):Float16(0.1),
+	δx -> δfδx(1, δx), # Don't need to specify 1 as Float16 because of multiple dispatch
+	legend = false,
+	xlabel = "δx",
+	ylabel = "δf/δx at x = 1"
+)
+```
+
+Looking from the right, we can see that the line, although jagged, is roughly converging in on the correct value of `2`. But as we get closer to `0`, the line becomes increasingly jagged, and stops converging entirely. What's happened?
+
+The problem comes when calculating `f(1 + δx) - f(1)`, and is twofold. Firstly, let's consider what value `1 + δx` really takes. We can use the `nextfloat` function to tell us what the next representable number after the input is:
+
+```{julia}
+#| code-fold: false
+
+nextfloat(Float16(1))
+```
+
+```{julia}
+#| code-fold: false
+
+nextfloat(Float16(1.001))
+```
+
+Herein lies the first issue. While the floating-point representations of `0.0001`, `0.0002`, `0.0003`, etc. are distinct, the density of floating-point numbers is greatly decreased as we go away from `0`, and so the floating-point representations of `1.0001`, `1.0002`, `1.0003`, etc. are not distinct. We can demonstrate by calculating the first twenty of these values:
+
+```{julia}
+#| code-fold: false
+
+collect((Float16(0.0001):Float16(0.0001):Float16(0.002)) .+ 1)
+```
+
+There simply aren't enough possible `Float16` numbers to differentiate these values! This is an example of adding together numbers of different magnitudes, namely adding `1` to numbers between 1000 and 10000 times smaller.
+
+A measure of the required magnitude difference needed for such inaccuracy is given by the *machine epsilon* $\varepsilon_\mathrm{mach}$. This is a property of each data type, given by $\varepsilon_\mathrm{mach} = 2^{-d}$, where the mantissa is represented by $d$ bits. In the case of `Float16`, $d = 10$, so $\varepsilon_\mathrm{mach} = 2^{-10} \approx 0.001$, which agrees with our observations. For `Float64`, $\varepsilon_\mathrm{mach} = 2^{-52} \approx 2 \times 10^{-16}$, which for many purposes is too small to care about, but it's large enough that many algorithms using floating-point arithmetic have to be adapted to avoid it.
+
+However, in our case, for the moment, the relative errors remain quite small, as we're still only differing in the fourth significant figure from the intended value. The problem only becomes visible when we square these values (i.e. calculating `f(1 + δx)`) and subtract `f(1) = 1`.
+
+| `δx`     | Exact value of `f(1 + δx) - f(1)` | `Float16` calculated value |
+|----------|-----------------------------------|----------------------------|
+| $0.0001$ | $0.00020001$                      | `0.0`                      |
+| $0.0002$ | $0.00040004$                      | `0.0`                      |
+| $0.0003$ | $0.00060009$                      | `0.0`                      |
+| $0.0004$ | $0.00080016$                      | `0.0`                      |
+| $0.0005$ | $0.00100025$                      | `0.001953`                 |
+| $0.0006$ | $0.00120036$                      | `0.001953`                 |
+| $0.0007$ | $0.00140049$                      | `0.001953`                 |
+| $0.0008$ | $0.00160064$                      | `0.001953`                 |
+| $0.0009$ | $0.00180081$                      | `0.001953`                 |
+| $0.001$  | $0.002001$                        | `0.001953`                 |
+
+Note that `0.001953` is just an approximation to the real value, which is `0.001953125`. Now, the largest significant figures are cancelled, and what was before a difference in the fourth significant figure is now a difference in the first! What were once errors of a fraction of a percent are now numbers twice as big as they should be (or in some cases, 0 for non-zero numbers).
+
+To avoid this, we need to be aware of the machine epsilon and the limit it places on the accuracy of computations, an inevitability of the way that floating-point numbers are defined. The only way to get around it if you need to do such calculations with floating-point numbers is to increase the precision (e.g. from `Float16` to `Float32` or `Float64`), increasing the length of the mantissa, and decreasing the machine epsilon.
+
+### Special exponents `00...0` and `11...1`
+
+There is one more quirk to floating-point numbers that we've eluded to, but not yet mentioned, and that is the numbers with exponent bits all `0` or all `1`. These not only extend the ability of floating-point numbers, but allow deal with the issues of overflow and underflow which we met in the integer case earlier.
+
+A glaring issue in our current implementation of `Float16` is that there is no `0`, since it doesn't really *have* significant figures. It would also seem sensible (although by no means necessary) to have the bit string `"0000000000000000"` represent `0`, but if the exponent `00000` worked like the rest, then this number would be $+1.0000000000_2 \times 2^{-15} = 2^{-15}$, since the implied bit `1` as the first significant figure. Instead, when the exponent is `00000`, we keep the shift of $-14$ like `00001`, but take the implied bit to be `0` instead of `1`. Therefore, the all zeroes bit string is interpreted as $+0.000000000000_2 \times 2^{-14} = 0$.
+
+Keeping the exponent `00000`, if we change some of the mantissa bits to be non-zero, then we get smaller positive numbers than we could represent before, such as `"0000000101011011"` representing $+0.0101011011_2 \times 2^{-14} \approx 0.0000207$. Such numbers are called *subnormal* numbers, as opposed to the *normal* numbers that we've seen before with other exponents. While it is very useful to have such numbers available for calculation, the initial zero means that they have many fewer significant digits than normal floating-point numbers, and so are even more prone to calculation errors.
+
+Of course, this works the same with sign bit `1`, giving us all the same numbers but with a minus sign. In particular, the bit string `"1000000000000000"` gives the number `-0`, which is actually different from `0`. So now, instead of no `0`, we've got two! If we return to thinking about intervals instead of exact values, then this seems less ridiculous, with `0` encompassing all positive numbers that are too small to represent with even the smallest subnormal number, and similarly `-0` for their negative counterparts.
+
+Meanwhile, the exponent `11111` works in an entirely different way, in fact it doesn't really act as an exponent at all. Rather, it marks out three special values that complete floating-point arithmetic:
+
+-   Adding the mantissa `"0000000000"` gives the bit string `"0111110000000000"`, which represents the value `Inf16`, or positive infinity. As a range, it is better thought of as all the numbers too big to represent as a `Float16` (specifically everything that is at least $65520$)
+
+-   With the sign bit flipped, the bit string `"1111110000000000000"` represents the value `-Inf16`, or negative infinity (or the range of all numbers at most $-65520$)
+
+-   Any other mantissa gives the value `NaN16`, which stands for *"not a number"*. This means that Julia has no idea what answer to give to your calculation
+
+While these are not numbers in the usual sense, they are floating-point values, and we can do arithmetic with them, for example:
+
+```{julia}
+#| code-fold: false
+
+Float16(1)/Float16(0)
+```
+
+```{julia}
+#| code-fold: false
+
+Float16(1)/-Inf16
+```
+
+```{julia}
+#| code-fold: false
+
+Float16(0)*Inf16
+```
+
+More or less any arithmetic you do with `NaN16` will return `NaN16`, because Julia doesn't have a value to calculate with. There are some odd exceptions where the value of the number is irrelevant, such as:
+
+```{julia}
+#| code-fold: false
+ 
+1^NaN16
+```
+
+The same works for `Float32` and `Float64`, with the exponent of `00...0` being the same as that of `00...01`, but with implied bit `0` instead of `1`. Also, as `Float64` is the default, the infinite and not-a-number values are simply `Inf`, `-Inf` and `NaN` (although you can type in `NaN64` if you like, but Julia will display `NaN`).
+
+### `BigFloat`
+
+The other floating-point type is `BigFloat`, which much like `BigInt`, allows for floating-point numbers to be stored with more bits, and therefore more precision. However, unlike `BigInt`, there are decimals that we can write down easily but can't be represented exactly by `BigFloat`. For example, as we've already noted, the decimal $0.1$ is represented in binary as `0.0001100110011...`, with infinitely many binary digits. Unless your computer has infinite memory (unlikely), it's clearly impossible to store this exactly as a floating-point number, so instead `BigFloat` simply allows you to increase the level of precision (i.e. the number of mantissa bits, plus one for the implied first bit `1`) as you please, with the exponent stored exactly as an `Int32`.
+
+```{julia}
+#| code-fold: false
+
+BigFloat("0.1", precision = 10)
+```
+
+```{julia}
+#| code-fold: false
+
+BigFloat("0.1", precision = 100)
+```
+
+```{julia}
+#| code-fold: false
+
+BigFloat("0.1", precision = 1000)
+```
+
+Note that we have to input the number `0.1` as a string `"0.1"`, since otherwise Julia will read it as a `Float64` immediately and immediately round it to `53` bit precision.
+
+## Parametric number types
+
+The various `Integer` and `Float` types are by far the most used types, but the others on the diagram are useful in certain circumstances, and for completeness, we'll look at all of them. All three are *parametric* types, which means that they require another type as a parameter before they can become a concrete type and take values.
+
+### `Complex`
+
+The `Complex` type is, unsurprisingly, used for dealing with complex numbers. The imaginary constant in Julia is called `im` (since `i` is so commonly used as an index for iteration in loops), with complex numbers given by multiplying this by the desired imaginary part and adding the real part:
+
+```{julia}
+#| code-fold: false
+
+z = 1 + 4*im
+```
+
+```{julia}
+#| code-fold: false
+
+typeof(z)
+```
+
+We see here that the type is not just `Complex`, but `Complex{Int64}`. This means `Complex` where the real and imaginary parts are of type `Int64`. We can do this with any `Real` type:
+
+```{julia}
+#| code-fold: false
+
+Float16(0.4) + Float16(0.6)*im
+```
+
+We can even mix-and-match, and Julia will choose the best data type to represent both. Here, `1` is of type `Int64`, but `3.5` is of type `Float64`, and Julia knows to pick `Float64` to represent both, as we can see by the addition of `.0` to the end.
+
+```{julia}
+#| code-fold: false
+
+1 + 3.5*im
+```
+
+Complex arithmetic is fully implemented with such types, although the same quirks of floating-point arithmetic crop up when the type parameter is one of the `Float` types.
+
+### `Rational`
+
+The `Rational` type allows for fractions to be stored and calculated with exact numerators and denominators, avoiding the precision issues of floating-point arithmetic. Again, this is a parametric type, but this type the parameter must be an `Integer` type, as it is the type that the numerator and denominator will take.
+
+Rationals are constructed using the operation `//`, separating the numerator and the denominator:
+
+```{julia}
+#| code-fold: false
+
+12 // 15
+```
+
+Note that the numerator and denominator are automatically cancelled to the lowest terms. In this case, with `Rational{Int64}`s, this is good, since we want to keep the numerator and denominator as small as possible to avoid issues with overflows and underflows that we saw earlier. Such errors still exist, although they will be identified and give an error message instead of being calculated:
+
+```{julia}
+#| code-fold: false
+
+typemax(Int64)//1 + 1//1
+```
+
+For maximal precision, we can convert the numerator and denominator to `BigInt` form, which can (inefficiently) store arbitrarily large rational numbers with no error. This can be preferable to using floating-point numbers in instances where precision is more important than speed.
+
+### `Irrational`
+
+The final numeric type on the diagram is `Rational`, and it's special, because while it's a parametric type, the parameter is not the name of another type. Instead, it's a `Symbol`, which is a type that represents variable names. The most familiar example is the constant `π`, which is represented by the `Symbol` `:π` (the colon denotes that the following word should be treated as a `Symbol` and not a variable name), and so has type `Irrational{:π}`:
+
+```{julia}
+#| code-fold: false
+
+π
+```
+
+```{julia}
+#| code-fold: false
+
+typeof(π)
+```
+
+The main purpose of `Irrational` types is for multiple dispatch. Irrational numbers such as `π` can't be represented exactly by floating-point types, and if the floating-point approximation is used instead of the exact value, the answer of calculations may be wrong. For example, `sin(π)` should exactly equal `0`, but if we were to first approximate `π` by a floating-point number, we don't get `0`:
+
+```{julia}
+#| code-fold: false
+
+sin(Float64(π))
+```
+
+The `Irrational` type fixes this by defining a method for an input of type `Irrational{:π}`, with output exactly `0` (or more specifically, the `Float64` value `0.0`):
+
+``` julia
+Base.sin(::Irrational{:π}) = 0.0 # From https://github.com/JuliaLang/julia/blob/master/base/mathconstants.jl
+```
+
+This overrides the usual method for computing `sin` of a `Float64`, and we get:
+
+```{julia}
+#| code-fold: false
+
+sin(π)
+```
+
+For any other calculation where an exact answer is not specified, the irrational number will be treated just like its `Float64` approximation as normal.
+
+## Resolving problems
+
+It's all very well knowing why these arithmetic errors are happening, but what can we do to avoid them? The first thing you should ask yourself is whether it is worth the effort to avoid them. Sometimes, errors will exist, but are too small to care about, or won't realistically happen, and the easy solution of simply ignoring them is the best way to go.
+
+However, as we've seen, sometimes such errors become a genuine issue, and it's worth knowing about some of the features that Julia has resolve them. We'll return to the examples we saw at the start, and see that they were carefully picked to be able to be solved neatly and concisely.
+
+To begin with, we tried adding `0.1` and `0.2`. Because these don't have exact floating-point representations, and neither does their sum, we got `0.30000000000000004` instead of `0.3`. If we use `Rational`s instead (specifically `Rational{Int64}`s), then the addition will be done exactly.
+
+```{julia}
+#| code-fold: false
+
+1//10 + 1//5
+```
+
+If we wish to convert to a `Float64` afterwards, we can do, and the answer will be correct:
+
+```{julia}
+#| code-fold: false
+
+Float64(1//10 + 1//5)
+```
+
+Note that we can't go back in the other direction, trying to convert the `Float64` `0.1` to a `Rational` gives:
+
+```{julia}
+#| code-fold: false
+
+Rational(0.1)
+```
+
+This is the exact floating-point value that is stored as a best approximation to `0.1`, but is clearly not equal to `0.1`, so some error would remain if we tried to calculate with this.
+
+How about raising `2` to the power `100`? This time, the error was an integer overflow error, because `2` is an `Int64`, but raising it to the power `100` gives more than `typemax(Int64)`, which is $2^{63} - 1 = 9223372036854775807$. Instead, it overflows, and wraps back around to $0$ every $2^{64}$. Due to the repeated squaring algorithm that Julia uses to calculate such exponentials, it ends up calculating that$2^{100} = 2^{64} \times 2^{32} \times 2^{4} = 0 \times 4294967296 \times 16 = 0$. In this case, `Int128` will be enough to handle this big a number (although `BigInt` would also work), and we only need to convert the `2` to be an `Int128`, as raising this to the power `100` will automatically be understood as a operation on a `Int128`, and will return a `Int128`:
+
+```{julia}
+#| code-fold: false
+
+Int128(2)^100
+```
+
+Finally, why can Julia correctly calculate `cos(π)`, but not `cos(π/2)`? The `cos` function has a special method to specifically calculate `cos(π)` correctly, just as `sin` did, since `π` has its own type `Irrational{:π}`. However, `π/2` does not have such a type, in fact it's not even `Irrational` type -- it is the output of the `/` function of types `Irrational{:π}` and `Int64`, which is `Float64` as that is the best approximation that exists. This means that its value is not exact, and this floating-point error is carried through when taking the cosine. We can demonstrate this by making use of the `@which` macro, which tells us which method Julia is using to calculate the final answer:
+
+```{julia}
+#| code-fold: false
+
+@which cos(π)
+```
+
+```{julia}
+#| code-fold: false
+
+@which cos(π/2)
+```
+
+To remedy this, Julia provides us with a function specifically for calculating the cosine of multiples of `π`, called `cospi` (similar functions such as `sinpi`, `sincospi`, and `cispi` also exist). We can see that this works as expected:
+
+```{julia}
+#| code-fold: false
+
+cospi(0.5)
+```
