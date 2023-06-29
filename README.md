@@ -1,5 +1,7 @@
 Repository for UCB23 project.
 
+https://jmb280.quarto.pub/julia-guide/
+
 # Outline for project
 - Installation
   - Installing Julia
