@@ -2,43 +2,43 @@ Repository for UCB23 project.
 
 # Outline for project
 - Installation
- - Installing Julia
- - Installing IDE (VSCode)
- - Installing packages
+  - Installing Julia
+  - Installing IDE (VSCode)
+  - Installing packages
 - Basics
- - REPL vs scripts
- - Simple arithmetic
- - Variables and types
- - Function (and macros?)
- - Help
+  - REPL vs scripts
+  - Simple arithmetic
+  - Variables and types
+  - Function (and macros?)
+  - Help
 - Numeric types
- - Differences between them
- - Errors that crop up
+  - Differences between them
+  - Errors that crop up
 - Control flow
- - Conditionals
- - Loops
- - Recursion
- - Errors
+  - Conditionals
+  - Loops
+  - Recursion
+  - Errors
 - Arrays
- - Arrays (mutable) and tuples (immutable)
- - Vectorised operations
- - Broadcast, slurp, splat
- - Mild linear algebra
+  - Arrays (mutable) and tuples (immutable)
+  - Vectorised operations
+  - Broadcast, slurp, splat
+  - Mild linear algebra
 - Multiple dispatch
- - Types/functions recap
- - Methods (with input type specification)
- - Promotion
+  - Types/functions recap
+  - Methods (with input type specification)
+  - Promotion
 - Reading and writing data
- - stdin and stdout examples
- - Opening file from path
- - CSV.jl?
+  - stdin and stdout examples
+  - Opening file from path
+  - CSV.jl?
 - Custom structures
- - Custom functions
- - Custom types
- - Custom modules
- - Export, and using/import
- - Use of Pkg
- - Include
+  - Custom functions
+  - Custom types
+  - Custom modules
+  - Export, and using/import
+  - Use of Pkg
+  - Include
 
 Order is approximate and could change
 
