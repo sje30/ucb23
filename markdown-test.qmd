@@ -1,0 +1,22 @@
+---
+format: ipynb
+title: "`jldoctest` with filter not rendered correctly by Quarto"
+---
+
+The `@doc` macro in Julia outputs documentation for the input function. Included in these outputs is the `jldoctest` environment, which acts similar to verbatim but allows for testing that the given inputs match the given outputs (see <https://documenter.juliadocs.org/stable/man/doctests/index.html>). It can also include a filter, which doesn't do anything for rendering, but allows non-deterministic outputs to be checked. This is not rendered correctly by Quarto, as can be demonstrated by rendering this document.
+
+-   In `.ipynb` format, the cells below are rendered as a single cell, not two Code cells with a Markdown cell in between
+
+-   This transfers through to the HTML format, with multiple occurrences of unwanted symbols and text in various random formats
+
+I think it's the filter that's causing this problem, as the `@doc sum` cell below has no such filter and works perfectly (apart from the `!!! compat` compatability warnings).
+
+```{julia}
+@doc sqrt(100)
+```
+
+❗❗This should be normal text, but it isn't.❗❗
+
+```{julia}
+@doc sum
+```
