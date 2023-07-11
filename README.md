@@ -54,6 +54,8 @@ Would also be nice to have some case studies, don't know what format yet
 - Ordering a list
 - Root finding or similar numerical methods
 - For more complicated examples we might be able to reuse one from the CATAM project
+- Logistic map
+- Julia set / Mandelbrot set (relation to logistic map?)
 
 # References
 
