@@ -48,6 +48,8 @@ Incomplete, still more to write about, including
 - String manipulation
 - Macros and code generation
 - Perhaps choose some packages to write about
+- Plotting
+- Test cases
 
 Would also be nice to have some case studies, don't know what format yet
 - Sum of integers 1 to 1000 seemed to work well
