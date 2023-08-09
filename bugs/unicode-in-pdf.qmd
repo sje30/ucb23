@@ -19,3 +19,12 @@ but not the less popular emoji...
 
 See: <https://github.com/quarto-dev/quarto-cli/issues/3013>
 
+
+
+## Compilation
+
+To compile
+
+```
+quarto render unicode-in-pdf.qmd --to pdf
+```
