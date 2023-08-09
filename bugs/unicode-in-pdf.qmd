@@ -1,1 +1,21 @@
+---
+format:
+  pdf:
+    monofont: "JuliaMono"
+    mainfont: "Times New Roman"
+keep-tex: true
+---
+
+
+JuliaMono font <https://juliamono.netlify.app>  has most stuff
+
+
+α = 1
+
+
+but not the less popular emoji...
+
 🦕
+
+See: <https://github.com/quarto-dev/quarto-cli/issues/3013>
+
