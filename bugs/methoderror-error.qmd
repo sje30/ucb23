@@ -1,0 +1,13 @@
+---
+execute:
+  error: true
+---
+
+```{julia}
+# Causes a MethodError
+sqrt("two")
+```
+
+```{julia}
+versioninfo()
+```
