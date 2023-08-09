@@ -1,0 +1,37 @@
+---
+title: "Code in appendix"
+execute:
+  echo: true
+---
+
+
+My preferred approach, reusing named chunks, does not work in jupyter,
+only in knitr:
+
+<https://stackoverflow.com/questions/76278117/how-to-achieve-code-reusability-in-quarto-markdown-qmd-similar-to-r-markdowns>
+
+However, you can I think use functions before defining them, see e.g.
+
+
+# Example
+
+Let's use our function
+
+```{julia}
+addone(10)
+```
+
+
+# Appendix
+
+Here is the definiton of my function
+
+
+```{julia}
+#| echo: true
+#| label: def
+function addone(x)
+    x+1
+end
+```
+
